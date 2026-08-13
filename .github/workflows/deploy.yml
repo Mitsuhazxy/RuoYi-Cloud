@@ -1,0 +1,162 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: mitsuhazxy/ruoyi-cloud
+  SHA_TAG: sha-${{ github.sha }}
+
+jobs:
+  backend:
+    name: Build Backend Jars
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Build with Maven
+        run: mvn clean package -Dmaven.test.skip=true
+
+      - name: Prepare jars
+        run: |
+          mkdir -p dist/jars/gateway dist/jars/auth dist/jars/system dist/jars/gen dist/jars/job dist/jars/file dist/jars/monitor
+          cp ruoyi-gateway/target/ruoyi-gateway.jar dist/jars/gateway/
+          cp ruoyi-auth/target/ruoyi-auth.jar dist/jars/auth/
+          cp ruoyi-modules/ruoyi-system/target/ruoyi-modules-system.jar dist/jars/system/
+          cp ruoyi-modules/ruoyi-gen/target/ruoyi-modules-gen.jar dist/jars/gen/
+          cp ruoyi-modules/ruoyi-job/target/ruoyi-modules-job.jar dist/jars/job/
+          cp ruoyi-modules/ruoyi-file/target/ruoyi-modules-file.jar dist/jars/file/
+          cp ruoyi-visual/ruoyi-monitor/target/ruoyi-visual-monitor.jar dist/jars/monitor/
+          ls -lh dist/jars/*/
+
+      - name: Upload jars
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jars
+          path: dist/jars
+          retention-days: 1
+
+  frontend:
+    name: Build Frontend Dist
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ruoyi-ui
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install deps
+        run: npm install --registry=https://registry.npmmirror.com
+
+      - name: Build
+        run: npm run build:prod
+
+      - name: Upload dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: ruoyi-ui/dist
+          retention-days: 1
+
+  images:
+    name: Build & Push Images
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download jars
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-jars
+          path: dist/jars
+
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist/frontend
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare build contexts
+        run: |
+          cp dist/jars/gateway/ruoyi-gateway.jar docker/ruoyi/gateway/jar/
+          cp dist/jars/auth/ruoyi-auth.jar docker/ruoyi/auth/jar/
+          cp dist/jars/system/ruoyi-modules-system.jar docker/ruoyi/modules/system/jar/
+          cp dist/jars/gen/ruoyi-modules-gen.jar docker/ruoyi/modules/gen/jar/
+          cp dist/jars/job/ruoyi-modules-job.jar docker/ruoyi/modules/job/jar/
+          cp dist/jars/file/ruoyi-modules-file.jar docker/ruoyi/modules/file/jar/
+          cp dist/jars/monitor/ruoyi-visual-monitor.jar docker/ruoyi/visual/monitor/jar/
+          mkdir -p docker/nginx/dist
+          cp -r dist/frontend/* docker/nginx/dist/
+          ls -lh docker/ruoyi/*/jar/*.jar docker/ruoyi/modules/*/jar/*.jar docker/ruoyi/visual/monitor/jar/*.jar docker/nginx/dist/index.html
+
+      - name: Build and push images
+        run: |
+          for svc in gateway auth system gen job file monitor; do
+            case $svc in
+              gateway) dir=docker/ruoyi/gateway ;;
+              auth) dir=docker/ruoyi/auth ;;
+              system) dir=docker/ruoyi/modules/system ;;
+              gen) dir=docker/ruoyi/modules/gen ;;
+              job) dir=docker/ruoyi/modules/job ;;
+              file) dir=docker/ruoyi/modules/file ;;
+              monitor) dir=docker/ruoyi/visual/monitor ;;
+            esac
+            docker buildx build --push --platform linux/arm64 \
+              -t ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/$svc:${{ env.SHA_TAG }} \
+              -t ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/$svc:latest \
+              -f $dir/dockerfile $dir
+          done
+          docker buildx build --push --platform linux/arm64 \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/web:${{ env.SHA_TAG }} \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/web:latest \
+            -f docker/nginx/dockerfile docker/nginx
+
+  deploy:
+    name: Deploy to Server
+    needs: images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd /home/dpanel/compose/ruoyi
+            echo ${{ secrets.GHCR_PAT }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker compose pull
+            docker compose up -d
+            docker image prune -f

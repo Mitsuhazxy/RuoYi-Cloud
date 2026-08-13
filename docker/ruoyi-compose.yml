@@ -1,0 +1,165 @@
+services:
+  # ================= Gateway =================
+  gateway:
+    image: ghcr.io/mitsuhazxy/ruoyi-cloud/gateway:latest
+    container_name: ruoyi-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - NACOS_SERVER_ADDR=${NACOS_SERVER_ADDR}
+      - NACOS_USERNAME=${NACOS_USERNAME}
+      - NACOS_PASSWORD=${NACOS_PASSWORD}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ruoyi-net
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+
+  # ================= Auth =================
+  auth:
+    image: ghcr.io/mitsuhazxy/ruoyi-cloud/auth:latest
+    container_name: ruoyi-auth
+    restart: unless-stopped
+    ports:
+      - "9200:9200"
+    environment:
+      - NACOS_SERVER_ADDR=${NACOS_SERVER_ADDR}
+      - NACOS_USERNAME=${NACOS_USERNAME}
+      - NACOS_PASSWORD=${NACOS_PASSWORD}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ruoyi-net
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+
+  # ================= System =================
+  system:
+    image: ghcr.io/mitsuhazxy/ruoyi-cloud/system:latest
+    container_name: ruoyi-modules-system
+    restart: unless-stopped
+    ports:
+      - "9201:9201"
+    environment:
+      - NACOS_SERVER_ADDR=${NACOS_SERVER_ADDR}
+      - NACOS_USERNAME=${NACOS_USERNAME}
+      - NACOS_PASSWORD=${NACOS_PASSWORD}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ruoyi-net
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+
+  # ================= Gen =================
+  gen:
+    image: ghcr.io/mitsuhazxy/ruoyi-cloud/gen:latest
+    container_name: ruoyi-modules-gen
+    restart: unless-stopped
+    ports:
+      - "9202:9202"
+    environment:
+      - NACOS_SERVER_ADDR=${NACOS_SERVER_ADDR}
+      - NACOS_USERNAME=${NACOS_USERNAME}
+      - NACOS_PASSWORD=${NACOS_PASSWORD}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ruoyi-net
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+
+  # ================= Job =================
+  job:
+    image: ghcr.io/mitsuhazxy/ruoyi-cloud/job:latest
+    container_name: ruoyi-modules-job
+    restart: unless-stopped
+    ports:
+      - "9203:9203"
+    environment:
+      - NACOS_SERVER_ADDR=${NACOS_SERVER_ADDR}
+      - NACOS_USERNAME=${NACOS_USERNAME}
+      - NACOS_PASSWORD=${NACOS_PASSWORD}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ruoyi-net
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+
+  # ================= File =================
+  file:
+    image: ghcr.io/mitsuhazxy/ruoyi-cloud/file:latest
+    container_name: ruoyi-modules-file
+    restart: unless-stopped
+    ports:
+      - "9300:9300"
+    volumes:
+      - /home/ruoyi/uploadPath:/home/ruoyi/uploadPath
+    environment:
+      - NACOS_SERVER_ADDR=${NACOS_SERVER_ADDR}
+      - NACOS_USERNAME=${NACOS_USERNAME}
+      - NACOS_PASSWORD=${NACOS_PASSWORD}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ruoyi-net
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+
+  # ================= Monitor =================
+  monitor:
+    image: ghcr.io/mitsuhazxy/ruoyi-cloud/monitor:latest
+    container_name: ruoyi-visual-monitor
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    environment:
+      - NACOS_SERVER_ADDR=${NACOS_SERVER_ADDR}
+      - NACOS_USERNAME=${NACOS_USERNAME}
+      - NACOS_PASSWORD=${NACOS_PASSWORD}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ruoyi-net
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+
+  # ================= Nginx =================
+  web:
+    image: ghcr.io/mitsuhazxy/ruoyi-cloud/web:latest
+    container_name: ruoyi-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - gateway
+    networks:
+      - ruoyi-net
+
+networks:
+  ruoyi-net:
+    driver: bridge

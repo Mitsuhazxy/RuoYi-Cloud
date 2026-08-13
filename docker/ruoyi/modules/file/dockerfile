@@ -1,0 +1,19 @@
+﻿# 基础镜像
+FROM eclipse-temurin:17-jre
+# author
+MAINTAINER ruoyi
+
+# 挂载目录
+VOLUME /home/ruoyi
+# 创建目录
+RUN mkdir -p /home/ruoyi
+# 指定路径
+WORKDIR /home/ruoyi
+# 复制jar文件到路径
+COPY ./jar/ruoyi-modules-file.jar /home/ruoyi/ruoyi-modules-file.jar
+# Nacos 连接配置（由 compose 通过环境变量注入）
+ENV NACOS_SERVER_ADDR=nacos:8848
+ENV NACOS_USERNAME=nacos
+ENV NACOS_PASSWORD=nacos
+# 启动服务
+ENTRYPOINT ["sh","-c","java -jar -Dspring.cloud.nacos.server-addr=$NACOS_SERVER_ADDR -Dspring.cloud.nacos.config.server-addr=$NACOS_SERVER_ADDR -Dspring.cloud.nacos.discovery.server-addr=$NACOS_SERVER_ADDR -Dspring.cloud.nacos.username=$NACOS_USERNAME -Dspring.cloud.nacos.password=$NACOS_PASSWORD ruoyi-modules-file.jar"]
