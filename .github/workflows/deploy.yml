@@ -5,6 +5,10 @@ on:
     branches: [ master ]
   workflow_dispatch:
 
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: mitsuhazxy/ruoyi-cloud
@@ -59,6 +63,8 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: '20'
+          cache: npm
+          cache-dependency-path: ruoyi-ui/package-lock.json
 
       - name: Install deps
         run: npm install --registry=https://registry.npmmirror.com
