@@ -24,6 +24,8 @@ target/
 *.iws
 *.iml
 *.ipr
+# Local run configs may contain credentials - never commit
+.run/
 
 ### JRebel ###
 rebel.xml
