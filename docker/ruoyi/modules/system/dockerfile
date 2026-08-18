@@ -16,4 +16,4 @@ ENV NACOS_SERVER_ADDR=nacos:8848
 ENV NACOS_USERNAME=nacos
 ENV NACOS_PASSWORD=nacos
 # 启动服务
-ENTRYPOINT ["sh","-c","java -jar -Dspring.cloud.nacos.server-addr=$NACOS_SERVER_ADDR -Dspring.cloud.nacos.config.server-addr=$NACOS_SERVER_ADDR -Dspring.cloud.nacos.discovery.server-addr=$NACOS_SERVER_ADDR -Dspring.cloud.nacos.username=$NACOS_USERNAME -Dspring.cloud.nacos.password=$NACOS_PASSWORD ruoyi-modules-system.jar"]
+ENTRYPOINT ["sh","-c","java -jar -Dspring.cloud.nacos.server-addr=$NACOS_SERVER_ADDR -Dspring.cloud.nacos.config.server-addr=$NACOS_SERVER_ADDR -Dspring.cloud.nacos.discovery.server-addr=$NACOS_SERVER_ADDR -Dspring.cloud.nacos.username=$NACOS_USERNAME -Dspring.cloud.nacos.password=$NACOS_PASSWORD -Dspring.profiles.active=dev -Dspring.cloud.nacos.config.namespace=public -Dspring.cloud.nacos.discovery.namespace=public ruoyi-modules-system.jar"]
